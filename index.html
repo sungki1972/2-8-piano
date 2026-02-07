@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>합창 음잡이 피아노</title>
+<title>합창 음잡이</title>
 <style>
 * {
   margin: 0;
@@ -22,58 +22,126 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-#top-bar {
+/* ── Tuner ── */
+#tuner {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50px;
-  background: rgba(0,0,0,0.6);
+  top: 0; left: 0; right: 0;
+  height: 160px;
+  background: linear-gradient(135deg, #0f0f23, #1a1a3e);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-bottom: 2px solid #333;
+}
+
+#tuner-note {
+  font-size: 52px;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1;
+  min-width: 80px;
+  text-align: center;
+}
+
+#tuner-freq {
+  font-size: 13px;
+  color: #888;
+  margin-top: 2px;
+}
+
+#tuner-meter {
+  width: 80%;
+  max-width: 350px;
+  height: 28px;
+  margin-top: 8px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+#meter-bar {
+  width: 100%;
+  height: 6px;
+  background: #333;
+  border-radius: 3px;
+  position: relative;
+}
+
+#meter-bar::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -8px;
+  width: 2px;
+  height: 22px;
+  background: #555;
+  transform: translateX(-50%);
+}
+
+#meter-needle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  background: #f44;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: left 0.1s ease-out;
+  box-shadow: 0 0 8px rgba(255,68,68,0.5);
+}
+
+#meter-needle.in-tune {
+  background: #4f4;
+  box-shadow: 0 0 12px rgba(68,255,68,0.6);
+}
+
+#meter-labels {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  position: absolute;
+  bottom: -2px;
+  font-size: 10px;
+  color: #666;
+}
+
+#mic-btn {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid #555;
+  background: #222;
+  color: #888;
+  font-size: 18px;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  z-index: 10;
-  backdrop-filter: blur(8px);
+  z-index: 11;
 }
 
-#mode-toggle {
-  display: flex;
-  background: #333;
-  border-radius: 25px;
-  overflow: hidden;
-  border: 2px solid #555;
+#mic-btn.on {
+  border-color: #f44;
+  background: #411;
+  color: #f66;
+  animation: pulse 1.5s infinite;
 }
 
-#mode-toggle button {
-  padding: 8px 20px;
-  border: none;
-  background: transparent;
-  color: #999;
-  font-size: 14px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.2s;
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,68,68,0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(255,68,68,0); }
 }
 
-#mode-toggle button.active {
-  background: #4a90d9;
-  color: #fff;
-}
-
-#loading {
-  color: #f0c040;
-  font-size: 12px;
-  display: none;
-}
-
-#loading.show {
-  display: block;
-}
-
+/* ── Piano ── */
 #piano {
   position: absolute;
-  top: 50px;
+  top: 160px;
   left: 0;
   right: 0;
   bottom: 0;
@@ -83,66 +151,100 @@ html, body {
 .white-key {
   flex: 1;
   height: 100%;
-  background: linear-gradient(to bottom, #f8f8f8, #e8e8e8);
-  border: 1px solid #aaa;
-  border-radius: 0 0 8px 8px;
+  background: linear-gradient(180deg, #fafafa 0%, #f0f0f0 60%, #e0e0e0 100%);
+  border: 1px solid #bbb;
+  border-top: none;
+  border-radius: 0 0 10px 10px;
   display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 20px;
-  font-size: clamp(10px, 2.5vw, 18px);
-  font-weight: bold;
-  color: #666;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: clamp(12px, 3vh, 30px);
   cursor: pointer;
   position: relative;
   z-index: 1;
   transition: background 0.05s;
 }
 
+.white-key .note-label {
+  font-size: clamp(14px, 3.5vw, 24px);
+  font-weight: 800;
+  color: #999;
+  pointer-events: none;
+}
+
 .white-key.active {
-  background: linear-gradient(to bottom, #ddd, #ccc);
-  box-shadow: inset 0 2px 8px rgba(0,0,0,0.2);
+  background: linear-gradient(180deg, #dde8ff 0%, #c8d8f0 60%, #b0c4e8 100%);
+}
+
+.white-key.active .note-label {
+  color: #4a70c0;
 }
 
 .black-key {
   position: absolute;
-  top: 50px;
-  width: calc(100% / 8 * 0.6);
-  height: calc((100% - 50px) * 0.62);
-  background: linear-gradient(to bottom, #333, #111);
-  border-radius: 0 0 6px 6px;
+  top: 160px;
+  width: calc(100% / 8 * 0.65);
+  height: calc((100% - 160px) * 0.58);
+  background: linear-gradient(180deg, #444 0%, #222 40%, #111 100%);
+  border-radius: 0 0 8px 8px;
   z-index: 2;
   cursor: pointer;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 15px;
-  font-size: clamp(8px, 1.8vw, 13px);
-  font-weight: bold;
-  color: #888;
-  box-shadow: 2px 4px 6px rgba(0,0,0,0.4);
+  padding-bottom: clamp(8px, 2vh, 18px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.5), inset 0 -2px 4px rgba(255,255,255,0.05);
   transition: background 0.05s;
 }
 
-.black-key.active {
-  background: linear-gradient(to bottom, #555, #333);
-  box-shadow: 1px 2px 3px rgba(0,0,0,0.3);
+.black-key .note-label {
+  font-size: clamp(9px, 2vw, 15px);
+  font-weight: 700;
+  color: #777;
+  pointer-events: none;
 }
+
+.black-key.active {
+  background: linear-gradient(180deg, #556 0%, #334 40%, #223 100%);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 -1px 2px rgba(255,255,255,0.05);
+  padding-top: 2px;
+}
+
+.black-key.active .note-label {
+  color: #aac;
+}
+
+/* Highlighted key when tuner detects note */
+.white-key.detected {
+  background: linear-gradient(180deg, #e8ffe8 0%, #c0f0c0 60%, #a0e0a0 100%);
+}
+.white-key.detected .note-label { color: #2a8a2a; }
+.black-key.detected {
+  background: linear-gradient(180deg, #3a5a3a 0%, #2a4a2a 40%, #1a3a1a 100%);
+}
+.black-key.detected .note-label { color: #8f8; }
 </style>
 </head>
 <body>
 
-<div id="top-bar">
-  <div id="mode-toggle">
-    <button id="btn-piano" class="active" onclick="setMode('piano')">Piano</button>
-    <button id="btn-organ" onclick="setMode('organ')">Organ</button>
+<div id="tuner">
+  <div id="tuner-note">--</div>
+  <div id="tuner-freq">마이크를 켜서 음을 감지하세요</div>
+  <div id="tuner-meter">
+    <div id="meter-bar"></div>
+    <div id="meter-needle" style="left:50%"></div>
+    <div id="meter-labels"><span>-50</span><span>0</span><span>+50</span></div>
   </div>
-  <span id="loading">loading...</span>
+  <button id="mic-btn" onclick="toggleMic()">&#x1f3a4;</button>
 </div>
+
 <div id="piano"></div>
 
 <script>
-// ── Note definitions ──
+// ── Notes ──
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
 const notes = [
   { name: 'C',  freq: 261.63, type: 'white', sample: 'C4'  },
   { name: 'C#', freq: 277.18, type: 'black', sample: 'Db4' },
@@ -159,177 +261,213 @@ const notes = [
   { name: 'C2', freq: 523.25, type: 'white', sample: 'C5'  },
 ];
 
+// ── Audio context & piano samples ──
 let audioCtx = null;
-let currentMode = 'piano'; // 'piano' or 'organ'
 const activeNotes = {};
 const sampleBuffers = {};
 let samplesLoaded = false;
 
 function getAudioCtx() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
 
-// ── Mode toggle ──
-function setMode(mode) {
-  currentMode = mode;
-  document.getElementById('btn-piano').classList.toggle('active', mode === 'piano');
-  document.getElementById('btn-organ').classList.toggle('active', mode === 'organ');
-  // Stop all active notes
-  Object.keys(activeNotes).forEach(name => {
-    const note = notes.find(n => n.name === name);
-    if (note) stopNote(note);
-    const keyEl = document.querySelector(`[data-note="${name}"]`);
-    if (keyEl) keyEl.classList.remove('active');
-  });
-  // Load samples if switching to piano
-  if (mode === 'piano' && !samplesLoaded) loadPianoSamples();
-}
-
-// ── Piano samples (real recorded piano) ──
 const SAMPLE_BASE = 'https://gleitz.github.io/midi-js-soundfonts/MusyngKite/acoustic_grand_piano-mp3/';
 
 async function loadPianoSamples() {
   const ctx = getAudioCtx();
-  const loading = document.getElementById('loading');
-  loading.classList.add('show');
-
-  const promises = notes.map(async note => {
+  await Promise.all(notes.map(async note => {
     try {
-      const url = SAMPLE_BASE + note.sample + '.mp3';
-      const resp = await fetch(url);
+      const resp = await fetch(SAMPLE_BASE + note.sample + '.mp3');
       const buf = await resp.arrayBuffer();
       sampleBuffers[note.name] = await ctx.decodeAudioData(buf);
-    } catch(e) {
-      console.warn('Failed to load sample:', note.sample, e);
-    }
-  });
-
-  await Promise.all(promises);
+    } catch(e) { console.warn('Sample load failed:', note.sample); }
+  }));
   samplesLoaded = true;
-  loading.classList.remove('show');
 }
 
-// ── Start / Stop note ──
 function startNote(note) {
   if (activeNotes[note.name]) return;
-  if (currentMode === 'piano') {
-    startPianoNote(note);
+  const ctx = getAudioCtx();
+  const buffer = sampleBuffers[note.name];
+
+  if (buffer) {
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(1.0, ctx.currentTime);
+    source.connect(gain);
+    gain.connect(ctx.destination);
+    source.start();
+    activeNotes[note.name] = { source, gain, ctx };
   } else {
-    startOrganNote(note);
+    // Synthesis fallback
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(note.freq, ctx.currentTime);
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.02);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    activeNotes[note.name] = { source: osc, gain, ctx, synth: true };
   }
 }
 
 function stopNote(note) {
   const data = activeNotes[note.name];
   if (!data) return;
-  if (data.mode === 'piano') {
-    stopPianoNote(note, data);
-  } else {
-    stopOrganNote(note, data);
-  }
-}
-
-// ── Piano mode: play real samples ──
-function startPianoNote(note) {
-  const ctx = getAudioCtx();
-  const buffer = sampleBuffers[note.name];
-
-  if (!buffer) {
-    // Fallback: improved synthesis if samples not loaded
-    startOrganNote(note);
-    return;
-  }
-
-  const source = ctx.createBufferSource();
-  source.buffer = buffer;
-
-  const gain = ctx.createGain();
-  gain.gain.setValueAtTime(1.0, ctx.currentTime);
-
-  source.connect(gain);
-  gain.connect(ctx.destination);
-  source.start();
-
-  activeNotes[note.name] = { source, gain, ctx, mode: 'piano' };
-}
-
-function stopPianoNote(note, data) {
   const { source, gain, ctx } = data;
   gain.gain.cancelScheduledValues(ctx.currentTime);
   gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-  setTimeout(() => { try { source.stop(); } catch(e) {} }, 600);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+  setTimeout(() => { try { source.stop(); } catch(e) {} }, 500);
   delete activeNotes[note.name];
 }
 
-// ── Organ mode: warm drawbar organ synthesis ──
-function startOrganNote(note) {
-  const ctx = getAudioCtx();
+// ── Tuner (pitch detection) ──
+let micStream = null;
+let micAnalyser = null;
+let micSource = null;
+let tunerRunning = false;
+let tunerRAF = null;
+let lastDetectedNote = null;
 
-  // Drawbar organ harmonics (8', 4', 2-2/3', 2', 1-3/5')
-  const harmonics = [
-    { ratio: 1,     gain: 0.40, type: 'sine' },   // fundamental (8')
-    { ratio: 2,     gain: 0.25, type: 'sine' },   // octave (4')
-    { ratio: 3,     gain: 0.10, type: 'sine' },   // 12th (2-2/3')
-    { ratio: 4,     gain: 0.12, type: 'sine' },   // 15th (2')
-    { ratio: 5,     gain: 0.05, type: 'sine' },   // 17th (1-3/5')
-    { ratio: 0.5,   gain: 0.15, type: 'sine' },   // sub-octave (16')
-  ];
+function toggleMic() {
+  if (tunerRunning) stopTuner();
+  else startTuner();
+}
 
-  const masterGain = ctx.createGain();
-  masterGain.gain.setValueAtTime(0, ctx.currentTime);
-  masterGain.gain.linearRampToValueAtTime(0.45, ctx.currentTime + 0.04);
+async function startTuner() {
+  try {
+    const ctx = getAudioCtx();
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micSource = ctx.createMediaStreamSource(micStream);
+    micAnalyser = ctx.createAnalyser();
+    micAnalyser.fftSize = 4096;
+    micSource.connect(micAnalyser);
+    tunerRunning = true;
+    document.getElementById('mic-btn').classList.add('on');
+    detectPitch();
+  } catch(e) {
+    alert('마이크 접근이 거부되었습니다.');
+  }
+}
 
-  // Gentle vibrato LFO
-  const lfo = ctx.createOscillator();
-  const lfoGain = ctx.createGain();
-  lfo.type = 'sine';
-  lfo.frequency.setValueAtTime(5.5, ctx.currentTime);
-  lfoGain.gain.setValueAtTime(1.5, ctx.currentTime); // subtle pitch vibrato
-  lfo.connect(lfoGain);
-  lfo.start();
+function stopTuner() {
+  tunerRunning = false;
+  if (tunerRAF) cancelAnimationFrame(tunerRAF);
+  if (micStream) micStream.getTracks().forEach(t => t.stop());
+  micStream = null;
+  document.getElementById('mic-btn').classList.remove('on');
+  document.getElementById('tuner-note').textContent = '--';
+  document.getElementById('tuner-freq').textContent = '마이크를 켜서 음을 감지하세요';
+  document.getElementById('meter-needle').style.left = '50%';
+  document.getElementById('meter-needle').classList.remove('in-tune');
+  clearDetectedHighlight();
+}
 
-  const oscillators = harmonics.map(h => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = h.type;
-    osc.frequency.setValueAtTime(note.freq * h.ratio, ctx.currentTime);
-    gain.gain.setValueAtTime(h.gain, ctx.currentTime);
+function detectPitch() {
+  if (!tunerRunning) return;
+  const buf = new Float32Array(micAnalyser.fftSize);
+  micAnalyser.getFloatTimeDomainData(buf);
 
-    // Connect LFO to frequency for vibrato
-    lfoGain.connect(osc.frequency);
+  const freq = autoCorrelate(buf, audioCtx.sampleRate);
 
-    osc.connect(gain);
-    gain.connect(masterGain);
-    osc.start();
-    return osc;
+  if (freq > 0) {
+    const { note, cents, octave } = freqToNote(freq);
+    const displayName = note + octave;
+
+    document.getElementById('tuner-note').textContent = displayName;
+    document.getElementById('tuner-freq').textContent = freq.toFixed(1) + ' Hz';
+
+    // Meter: cents range -50 to +50 mapped to 0% - 100%
+    const pct = Math.max(0, Math.min(100, 50 + cents));
+    const needle = document.getElementById('meter-needle');
+    needle.style.left = pct + '%';
+    needle.classList.toggle('in-tune', Math.abs(cents) < 5);
+
+    highlightDetected(note);
+  }
+
+  tunerRAF = requestAnimationFrame(detectPitch);
+}
+
+// Autocorrelation pitch detection
+function autoCorrelate(buf, sampleRate) {
+  // Check if there's enough signal
+  let rms = 0;
+  for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
+  rms = Math.sqrt(rms / buf.length);
+  if (rms < 0.01) return -1; // too quiet
+
+  // Trim silence from edges
+  let start = 0, end = buf.length - 1;
+  const threshold = 0.2;
+  while (start < buf.length / 2 && Math.abs(buf[start]) < threshold) start++;
+  while (end > buf.length / 2 && Math.abs(buf[end]) < threshold) end--;
+  const trimmed = buf.slice(start, end + 1);
+
+  // Autocorrelation
+  const len = trimmed.length;
+  const corr = new Float32Array(len);
+  for (let lag = 0; lag < len; lag++) {
+    let sum = 0;
+    for (let i = 0; i < len - lag; i++) {
+      sum += trimmed[i] * trimmed[i + lag];
+    }
+    corr[lag] = sum;
+  }
+
+  // Find first dip then first peak
+  let d = 0;
+  while (d < len && corr[d] > corr[d + 1]) d++;
+
+  let maxVal = -1, maxPos = -1;
+  for (let i = d; i < len; i++) {
+    if (corr[i] > maxVal) {
+      maxVal = corr[i];
+      maxPos = i;
+    }
+  }
+
+  if (maxPos <= 0) return -1;
+
+  // Parabolic interpolation for sub-sample accuracy
+  const y1 = corr[maxPos - 1] || 0;
+  const y2 = corr[maxPos];
+  const y3 = corr[maxPos + 1] || 0;
+  const shift = (y3 - y1) / (2 * (2 * y2 - y1 - y3));
+  const refinedPos = maxPos + (isFinite(shift) ? shift : 0);
+
+  return sampleRate / refinedPos;
+}
+
+function freqToNote(freq) {
+  const semitones = 12 * Math.log2(freq / 440);
+  const rounded = Math.round(semitones);
+  const cents = (semitones - rounded) * 100;
+  const noteIndex = ((rounded % 12) + 12) % 12;
+  const note = NOTE_NAMES[(noteIndex + 9) % 12]; // A=0 -> remap
+  const octave = Math.floor((rounded + 9) / 12) + 4; // A4 = 440
+  return { note, cents, octave };
+}
+
+function highlightDetected(noteName) {
+  if (lastDetectedNote === noteName) return;
+  clearDetectedHighlight();
+  lastDetectedNote = noteName;
+  // Highlight matching piano keys
+  document.querySelectorAll(`[data-note="${noteName}"], [data-note="${noteName}2"]`).forEach(el => {
+    el.classList.add('detected');
   });
-
-  masterGain.connect(ctx.destination);
-
-  activeNotes[note.name] = {
-    oscs: oscillators,
-    lfo,
-    gain: masterGain,
-    ctx,
-    mode: 'organ'
-  };
 }
 
-function stopOrganNote(note, data) {
-  const { oscs, lfo, gain, ctx } = data;
-  gain.gain.cancelScheduledValues(ctx.currentTime);
-  gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-  setTimeout(() => {
-    oscs.forEach(o => { try { o.stop(); } catch(e) {} });
-    try { lfo.stop(); } catch(e) {}
-  }, 200);
-  delete activeNotes[note.name];
+function clearDetectedHighlight() {
+  document.querySelectorAll('.detected').forEach(el => el.classList.remove('detected'));
+  lastDetectedNote = null;
 }
 
 // ── Build piano UI ──
@@ -339,7 +477,10 @@ notes.filter(n => n.type === 'white').forEach(note => {
   const key = document.createElement('div');
   key.className = 'white-key';
   key.dataset.note = note.name;
-  key.textContent = note.name.replace('2', '');
+  const label = document.createElement('span');
+  label.className = 'note-label';
+  label.textContent = note.name.replace('2', '');
+  key.appendChild(label);
   piano.appendChild(key);
 });
 
@@ -350,7 +491,6 @@ const blackKeyPositions = [
   { note: 'G#', afterWhite: 4 },
   { note: 'A#', afterWhite: 5 },
 ];
-
 const whiteKeyWidth = 100 / 8;
 
 blackKeyPositions.forEach(pos => {
@@ -358,9 +498,11 @@ blackKeyPositions.forEach(pos => {
   const key = document.createElement('div');
   key.className = 'black-key';
   key.dataset.note = note.name;
-  key.textContent = note.name;
-  const leftPercent = (pos.afterWhite + 1) * whiteKeyWidth - (whiteKeyWidth * 0.3);
-  key.style.left = leftPercent + '%';
+  const label = document.createElement('span');
+  label.className = 'note-label';
+  label.textContent = note.name;
+  key.appendChild(label);
+  key.style.left = ((pos.afterWhite + 1) * whiteKeyWidth - whiteKeyWidth * 0.325) + '%';
   piano.appendChild(key);
 });
 
@@ -369,36 +511,29 @@ function handleStart(el) {
   const keyEl = el.closest('.white-key, .black-key');
   if (!keyEl) return;
   const note = notes.find(n => n.name === keyEl.dataset.note);
-  if (note) {
-    keyEl.classList.add('active');
-    startNote(note);
-  }
+  if (note) { keyEl.classList.add('active'); startNote(note); }
 }
 
 function handleEnd(el) {
   const keyEl = el.closest('.white-key, .black-key');
   if (!keyEl) return;
   const note = notes.find(n => n.name === keyEl.dataset.note);
-  if (note) {
-    keyEl.classList.remove('active');
-    stopNote(note);
-  }
+  if (note) { keyEl.classList.remove('active'); stopNote(note); }
 }
 
-// Mouse events
 piano.addEventListener('mousedown', e => {
   handleStart(e.target);
   const onMove = ev => {
     const el = document.elementFromPoint(ev.clientX, ev.clientY);
     if (el) {
-      document.querySelectorAll('.active').forEach(k => {
+      document.querySelectorAll('#piano .active').forEach(k => {
         if (k !== el.closest('.white-key, .black-key')) handleEnd(k);
       });
       handleStart(el);
     }
   };
   const onUp = () => {
-    document.querySelectorAll('.active').forEach(k => handleEnd(k));
+    document.querySelectorAll('#piano .active').forEach(k => handleEnd(k));
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
   };
@@ -406,7 +541,6 @@ piano.addEventListener('mousedown', e => {
   document.addEventListener('mouseup', onUp);
 });
 
-// Touch events (mobile)
 const activeTouches = {};
 
 piano.addEventListener('touchstart', e => {
@@ -415,10 +549,7 @@ piano.addEventListener('touchstart', e => {
     const el = document.elementFromPoint(touch.clientX, touch.clientY);
     if (el) {
       const keyEl = el.closest('.white-key, .black-key');
-      if (keyEl) {
-        activeTouches[touch.identifier] = keyEl.dataset.note;
-        handleStart(el);
-      }
+      if (keyEl) { activeTouches[touch.identifier] = keyEl.dataset.note; handleStart(el); }
     }
   }
 }, { passive: false });
@@ -429,12 +560,9 @@ piano.addEventListener('touchmove', e => {
     const el = document.elementFromPoint(touch.clientX, touch.clientY);
     if (el) {
       const keyEl = el.closest('.white-key, .black-key');
-      const prevNote = activeTouches[touch.identifier];
-      if (keyEl && keyEl.dataset.note !== prevNote) {
-        if (prevNote) {
-          const prevKey = document.querySelector(`[data-note="${prevNote}"]`);
-          if (prevKey) handleEnd(prevKey);
-        }
+      const prev = activeTouches[touch.identifier];
+      if (keyEl && keyEl.dataset.note !== prev) {
+        if (prev) { const pk = document.querySelector(`[data-note="${prev}"]`); if (pk) handleEnd(pk); }
         activeTouches[touch.identifier] = keyEl.dataset.note;
         handleStart(el);
       }
@@ -445,65 +573,39 @@ piano.addEventListener('touchmove', e => {
 piano.addEventListener('touchend', e => {
   e.preventDefault();
   for (const touch of e.changedTouches) {
-    const noteName = activeTouches[touch.identifier];
-    if (noteName) {
-      const keyEl = document.querySelector(`[data-note="${noteName}"]`);
-      if (keyEl) handleEnd(keyEl);
-      delete activeTouches[touch.identifier];
-    }
+    const n = activeTouches[touch.identifier];
+    if (n) { const k = document.querySelector(`[data-note="${n}"]`); if (k) handleEnd(k); delete activeTouches[touch.identifier]; }
   }
 }, { passive: false });
 
 piano.addEventListener('touchcancel', e => {
   for (const touch of e.changedTouches) {
-    const noteName = activeTouches[touch.identifier];
-    if (noteName) {
-      const keyEl = document.querySelector(`[data-note="${noteName}"]`);
-      if (keyEl) handleEnd(keyEl);
-      delete activeTouches[touch.identifier];
-    }
+    const n = activeTouches[touch.identifier];
+    if (n) { const k = document.querySelector(`[data-note="${n}"]`); if (k) handleEnd(k); delete activeTouches[touch.identifier]; }
   }
 });
 
-// Keyboard support
 const keyMap = {
-  'a': 'C', 'w': 'C#', 's': 'D', 'e': 'D#', 'd': 'E',
-  'f': 'F', 't': 'F#', 'g': 'G', 'y': 'G#', 'h': 'A',
-  'u': 'A#', 'j': 'B', 'k': 'C2'
+  'a':'C','w':'C#','s':'D','e':'D#','d':'E',
+  'f':'F','t':'F#','g':'G','y':'G#','h':'A',
+  'u':'A#','j':'B','k':'C2'
 };
 
 document.addEventListener('keydown', e => {
   if (e.repeat) return;
-  const noteName = keyMap[e.key.toLowerCase()];
-  if (noteName) {
-    const note = notes.find(n => n.name === noteName);
-    const keyEl = document.querySelector(`[data-note="${noteName}"]`);
-    if (note && keyEl) {
-      keyEl.classList.add('active');
-      startNote(note);
-    }
-  }
+  const n = keyMap[e.key.toLowerCase()];
+  if (n) { const note = notes.find(x => x.name === n); const k = document.querySelector(`[data-note="${n}"]`); if (note && k) { k.classList.add('active'); startNote(note); } }
 });
 
 document.addEventListener('keyup', e => {
-  const noteName = keyMap[e.key.toLowerCase()];
-  if (noteName) {
-    const note = notes.find(n => n.name === noteName);
-    const keyEl = document.querySelector(`[data-note="${noteName}"]`);
-    if (note && keyEl) {
-      keyEl.classList.remove('active');
-      stopNote(note);
-    }
-  }
+  const n = keyMap[e.key.toLowerCase()];
+  if (n) { const note = notes.find(x => x.name === n); const k = document.querySelector(`[data-note="${n}"]`); if (note && k) { k.classList.remove('active'); stopNote(note); } }
 });
 
-// Auto-load piano samples on first interaction
-document.addEventListener('click', () => {
-  if (!samplesLoaded) loadPianoSamples();
-}, { once: true });
-document.addEventListener('touchstart', () => {
-  if (!samplesLoaded) loadPianoSamples();
-}, { once: true });
+// Load samples on first interaction
+function initSamples() { if (!samplesLoaded) loadPianoSamples(); }
+document.addEventListener('click', initSamples, { once: true });
+document.addEventListener('touchstart', initSamples, { once: true });
 </script>
 </body>
 </html>
