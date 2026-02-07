@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Piano</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  user-select: none;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #1a1a2e;
+}
+
+#piano {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+
+.white-key {
+  flex: 1;
+  height: 100%;
+  background: linear-gradient(to bottom, #f8f8f8, #e8e8e8);
+  border: 1px solid #aaa;
+  border-radius: 0 0 8px 8px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 20px;
+  font-size: clamp(10px, 2.5vw, 18px);
+  font-weight: bold;
+  color: #666;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+  transition: background 0.05s;
+}
+
+.white-key.active {
+  background: linear-gradient(to bottom, #ddd, #ccc);
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.black-key {
+  position: absolute;
+  top: 0;
+  width: calc(100% / 8 * 0.6);
+  height: 62%;
+  background: linear-gradient(to bottom, #333, #111);
+  border-radius: 0 0 6px 6px;
+  z-index: 2;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 15px;
+  font-size: clamp(8px, 1.8vw, 13px);
+  font-weight: bold;
+  color: #888;
+  box-shadow: 2px 4px 6px rgba(0,0,0,0.4);
+  transition: background 0.05s;
+}
+
+.black-key.active {
+  background: linear-gradient(to bottom, #555, #333);
+  box-shadow: 1px 2px 3px rgba(0,0,0,0.3);
+  height: 60%;
+}
+</style>
+</head>
+<body>
+<div id="piano"></div>
+
+<script>
+const notes = [
+  { name: 'C',  freq: 261.63, type: 'white' },
+  { name: 'C#', freq: 277.18, type: 'black' },
+  { name: 'D',  freq: 293.66, type: 'white' },
+  { name: 'D#', freq: 311.13, type: 'black' },
+  { name: 'E',  freq: 329.63, type: 'white' },
+  { name: 'F',  freq: 349.23, type: 'white' },
+  { name: 'F#', freq: 369.99, type: 'black' },
+  { name: 'G',  freq: 392.00, type: 'white' },
+  { name: 'G#', freq: 415.30, type: 'black' },
+  { name: 'A',  freq: 440.00, type: 'white' },
+  { name: 'A#', freq: 466.16, type: 'black' },
+  { name: 'B',  freq: 493.88, type: 'white' },
+  { name: 'C2', freq: 523.25, type: 'white' },
+];
+
+let audioCtx = null;
+const activeOscillators = {};
+
+function getAudioCtx() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return audioCtx;
+}
+
+function startNote(note) {
+  if (activeOscillators[note.name]) return;
+  const ctx = getAudioCtx();
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  const masterGain = ctx.createGain();
+
+  // Piano-like tone: combine triangle + sine harmonics
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(note.freq, ctx.currentTime);
+
+  // Second oscillator for richness
+  const osc2 = ctx.createOscillator();
+  const gain2 = ctx.createGain();
+  osc2.type = 'sine';
+  osc2.frequency.setValueAtTime(note.freq * 2, ctx.currentTime);
+  gain2.gain.setValueAtTime(0.15, ctx.currentTime);
+
+  // Third oscillator
+  const osc3 = ctx.createOscillator();
+  const gain3 = ctx.createGain();
+  osc3.type = 'sine';
+  osc3.frequency.setValueAtTime(note.freq * 3, ctx.currentTime);
+  gain3.gain.setValueAtTime(0.06, ctx.currentTime);
+
+  // Attack envelope
+  gain.gain.setValueAtTime(0, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.1);
+
+  masterGain.gain.setValueAtTime(0.6, ctx.currentTime);
+
+  osc.connect(gain);
+  osc2.connect(gain2);
+  osc3.connect(gain3);
+  gain.connect(masterGain);
+  gain2.connect(masterGain);
+  gain3.connect(masterGain);
+  masterGain.connect(ctx.destination);
+
+  osc.start();
+  osc2.start();
+  osc3.start();
+
+  activeOscillators[note.name] = { oscs: [osc, osc2, osc3], gain: masterGain, ctx };
+}
+
+function stopNote(note) {
+  const data = activeOscillators[note.name];
+  if (!data) return;
+  const { oscs, gain, ctx } = data;
+
+  // Release envelope
+  gain.gain.cancelScheduledValues(ctx.currentTime);
+  gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+
+  setTimeout(() => {
+    oscs.forEach(o => { try { o.stop(); } catch(e) {} });
+  }, 350);
+
+  delete activeOscillators[note.name];
+}
+
+// Build piano UI
+const piano = document.getElementById('piano');
+const whiteNotes = notes.filter(n => n.type === 'white');
+const blackNotes = notes.filter(n => n.type === 'black');
+
+// White keys
+whiteNotes.forEach(note => {
+  const key = document.createElement('div');
+  key.className = 'white-key';
+  key.dataset.note = note.name;
+  key.textContent = note.name.replace('2', '');
+  piano.appendChild(key);
+});
+
+// Black keys - position them between white keys
+const blackKeyPositions = [
+  { note: 'C#', afterWhite: 0 },  // between C and D
+  { note: 'D#', afterWhite: 1 },  // between D and E
+  { note: 'F#', afterWhite: 3 },  // between F and G
+  { note: 'G#', afterWhite: 4 },  // between G and A
+  { note: 'A#', afterWhite: 5 },  // between A and B
+];
+
+const whiteKeyWidth = 100 / 8; // percentage width of each white key
+
+blackKeyPositions.forEach(pos => {
+  const note = notes.find(n => n.name === pos.note);
+  const key = document.createElement('div');
+  key.className = 'black-key';
+  key.dataset.note = note.name;
+  key.textContent = note.name;
+  // Position: center between the two white keys
+  const leftPercent = (pos.afterWhite + 1) * whiteKeyWidth - (whiteKeyWidth * 0.3);
+  key.style.left = leftPercent + '%';
+  piano.appendChild(key);
+});
+
+// Event handlers
+function getNoteFromElement(el) {
+  const keyEl = el.closest('.white-key, .black-key');
+  if (!keyEl) return null;
+  return notes.find(n => n.name === keyEl.dataset.note);
+}
+
+function handleStart(el) {
+  const keyEl = el.closest('.white-key, .black-key');
+  if (!keyEl) return;
+  const note = notes.find(n => n.name === keyEl.dataset.note);
+  if (note) {
+    keyEl.classList.add('active');
+    startNote(note);
+  }
+}
+
+function handleEnd(el) {
+  const keyEl = el.closest('.white-key, .black-key');
+  if (!keyEl) return;
+  const note = notes.find(n => n.name === keyEl.dataset.note);
+  if (note) {
+    keyEl.classList.remove('active');
+    stopNote(note);
+  }
+}
+
+// Mouse events
+piano.addEventListener('mousedown', e => {
+  handleStart(e.target);
+  const onMove = ev => {
+    // Handle dragging across keys
+    const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    if (el) {
+      document.querySelectorAll('.active').forEach(k => {
+        if (k !== el.closest('.white-key, .black-key')) {
+          handleEnd(k);
+        }
+      });
+      handleStart(el);
+    }
+  };
+  const onUp = () => {
+    document.querySelectorAll('.active').forEach(k => handleEnd(k));
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+});
+
+// Touch events (mobile)
+const activeTouches = {};
+
+piano.addEventListener('touchstart', e => {
+  e.preventDefault();
+  for (const touch of e.changedTouches) {
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (el) {
+      const keyEl = el.closest('.white-key, .black-key');
+      if (keyEl) {
+        activeTouches[touch.identifier] = keyEl.dataset.note;
+        handleStart(el);
+      }
+    }
+  }
+}, { passive: false });
+
+piano.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (const touch of e.changedTouches) {
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (el) {
+      const keyEl = el.closest('.white-key, .black-key');
+      const prevNote = activeTouches[touch.identifier];
+      if (keyEl && keyEl.dataset.note !== prevNote) {
+        // Stop previous note
+        if (prevNote) {
+          const prevKey = document.querySelector(`[data-note="${prevNote}"]`);
+          if (prevKey) handleEnd(prevKey);
+        }
+        // Start new note
+        activeTouches[touch.identifier] = keyEl.dataset.note;
+        handleStart(el);
+      }
+    }
+  }
+}, { passive: false });
+
+piano.addEventListener('touchend', e => {
+  e.preventDefault();
+  for (const touch of e.changedTouches) {
+    const noteName = activeTouches[touch.identifier];
+    if (noteName) {
+      const keyEl = document.querySelector(`[data-note="${noteName}"]`);
+      if (keyEl) handleEnd(keyEl);
+      delete activeTouches[touch.identifier];
+    }
+  }
+}, { passive: false });
+
+piano.addEventListener('touchcancel', e => {
+  for (const touch of e.changedTouches) {
+    const noteName = activeTouches[touch.identifier];
+    if (noteName) {
+      const keyEl = document.querySelector(`[data-note="${noteName}"]`);
+      if (keyEl) handleEnd(keyEl);
+      delete activeTouches[touch.identifier];
+    }
+  }
+});
+
+// Keyboard support
+const keyMap = {
+  'a': 'C', 'w': 'C#', 's': 'D', 'e': 'D#', 'd': 'E',
+  'f': 'F', 't': 'F#', 'g': 'G', 'y': 'G#', 'h': 'A',
+  'u': 'A#', 'j': 'B', 'k': 'C2'
+};
+
+document.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  const noteName = keyMap[e.key.toLowerCase()];
+  if (noteName) {
+    const note = notes.find(n => n.name === noteName);
+    const keyEl = document.querySelector(`[data-note="${noteName}"]`);
+    if (note && keyEl) {
+      keyEl.classList.add('active');
+      startNote(note);
+    }
+  }
+});
+
+document.addEventListener('keyup', e => {
+  const noteName = keyMap[e.key.toLowerCase()];
+  if (noteName) {
+    const note = notes.find(n => n.name === noteName);
+    const keyEl = document.querySelector(`[data-note="${noteName}"]`);
+    if (note && keyEl) {
+      keyEl.classList.remove('active');
+      stopNote(note);
+    }
+  }
+});
+</script>
+</body>
+</html>
