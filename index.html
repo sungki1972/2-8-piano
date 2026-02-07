@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Piano</title>
+<title>합창 음잡이 피아노</title>
 <style>
 * {
   margin: 0;
@@ -19,12 +19,64 @@ html, body {
   height: 100%;
   overflow: hidden;
   background: #1a1a2e;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+#top-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+}
+
+#mode-toggle {
+  display: flex;
+  background: #333;
+  border-radius: 25px;
+  overflow: hidden;
+  border: 2px solid #555;
+}
+
+#mode-toggle button {
+  padding: 8px 20px;
+  border: none;
+  background: transparent;
+  color: #999;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+#mode-toggle button.active {
+  background: #4a90d9;
+  color: #fff;
+}
+
+#loading {
+  color: #f0c040;
+  font-size: 12px;
+  display: none;
+}
+
+#loading.show {
+  display: block;
 }
 
 #piano {
-  position: relative;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  top: 50px;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
 }
 
@@ -54,9 +106,9 @@ html, body {
 
 .black-key {
   position: absolute;
-  top: 0;
+  top: 50px;
   width: calc(100% / 8 * 0.6);
-  height: 62%;
+  height: calc((100% - 50px) * 0.62);
   background: linear-gradient(to bottom, #333, #111);
   border-radius: 0 0 6px 6px;
   z-index: 2;
@@ -75,112 +127,215 @@ html, body {
 .black-key.active {
   background: linear-gradient(to bottom, #555, #333);
   box-shadow: 1px 2px 3px rgba(0,0,0,0.3);
-  height: 60%;
 }
 </style>
 </head>
 <body>
+
+<div id="top-bar">
+  <div id="mode-toggle">
+    <button id="btn-piano" class="active" onclick="setMode('piano')">Piano</button>
+    <button id="btn-organ" onclick="setMode('organ')">Organ</button>
+  </div>
+  <span id="loading">loading...</span>
+</div>
 <div id="piano"></div>
 
 <script>
+// ── Note definitions ──
 const notes = [
-  { name: 'C',  freq: 261.63, type: 'white' },
-  { name: 'C#', freq: 277.18, type: 'black' },
-  { name: 'D',  freq: 293.66, type: 'white' },
-  { name: 'D#', freq: 311.13, type: 'black' },
-  { name: 'E',  freq: 329.63, type: 'white' },
-  { name: 'F',  freq: 349.23, type: 'white' },
-  { name: 'F#', freq: 369.99, type: 'black' },
-  { name: 'G',  freq: 392.00, type: 'white' },
-  { name: 'G#', freq: 415.30, type: 'black' },
-  { name: 'A',  freq: 440.00, type: 'white' },
-  { name: 'A#', freq: 466.16, type: 'black' },
-  { name: 'B',  freq: 493.88, type: 'white' },
-  { name: 'C2', freq: 523.25, type: 'white' },
+  { name: 'C',  freq: 261.63, type: 'white', sample: 'C4'  },
+  { name: 'C#', freq: 277.18, type: 'black', sample: 'Db4' },
+  { name: 'D',  freq: 293.66, type: 'white', sample: 'D4'  },
+  { name: 'D#', freq: 311.13, type: 'black', sample: 'Eb4' },
+  { name: 'E',  freq: 329.63, type: 'white', sample: 'E4'  },
+  { name: 'F',  freq: 349.23, type: 'white', sample: 'F4'  },
+  { name: 'F#', freq: 369.99, type: 'black', sample: 'Gb4' },
+  { name: 'G',  freq: 392.00, type: 'white', sample: 'G4'  },
+  { name: 'G#', freq: 415.30, type: 'black', sample: 'Ab4' },
+  { name: 'A',  freq: 440.00, type: 'white', sample: 'A4'  },
+  { name: 'A#', freq: 466.16, type: 'black', sample: 'Bb4' },
+  { name: 'B',  freq: 493.88, type: 'white', sample: 'B4'  },
+  { name: 'C2', freq: 523.25, type: 'white', sample: 'C5'  },
 ];
 
 let audioCtx = null;
-const activeOscillators = {};
+let currentMode = 'piano'; // 'piano' or 'organ'
+const activeNotes = {};
+const sampleBuffers = {};
+let samplesLoaded = false;
 
 function getAudioCtx() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
 
-function startNote(note) {
-  if (activeOscillators[note.name]) return;
+// ── Mode toggle ──
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('btn-piano').classList.toggle('active', mode === 'piano');
+  document.getElementById('btn-organ').classList.toggle('active', mode === 'organ');
+  // Stop all active notes
+  Object.keys(activeNotes).forEach(name => {
+    const note = notes.find(n => n.name === name);
+    if (note) stopNote(note);
+    const keyEl = document.querySelector(`[data-note="${name}"]`);
+    if (keyEl) keyEl.classList.remove('active');
+  });
+  // Load samples if switching to piano
+  if (mode === 'piano' && !samplesLoaded) loadPianoSamples();
+}
+
+// ── Piano samples (real recorded piano) ──
+const SAMPLE_BASE = 'https://gleitz.github.io/midi-js-soundfonts/MusyngKite/acoustic_grand_piano-mp3/';
+
+async function loadPianoSamples() {
   const ctx = getAudioCtx();
+  const loading = document.getElementById('loading');
+  loading.classList.add('show');
 
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  const masterGain = ctx.createGain();
+  const promises = notes.map(async note => {
+    try {
+      const url = SAMPLE_BASE + note.sample + '.mp3';
+      const resp = await fetch(url);
+      const buf = await resp.arrayBuffer();
+      sampleBuffers[note.name] = await ctx.decodeAudioData(buf);
+    } catch(e) {
+      console.warn('Failed to load sample:', note.sample, e);
+    }
+  });
 
-  // Piano-like tone: combine triangle + sine harmonics
-  osc.type = 'triangle';
-  osc.frequency.setValueAtTime(note.freq, ctx.currentTime);
+  await Promise.all(promises);
+  samplesLoaded = true;
+  loading.classList.remove('show');
+}
 
-  // Second oscillator for richness
-  const osc2 = ctx.createOscillator();
-  const gain2 = ctx.createGain();
-  osc2.type = 'sine';
-  osc2.frequency.setValueAtTime(note.freq * 2, ctx.currentTime);
-  gain2.gain.setValueAtTime(0.15, ctx.currentTime);
-
-  // Third oscillator
-  const osc3 = ctx.createOscillator();
-  const gain3 = ctx.createGain();
-  osc3.type = 'sine';
-  osc3.frequency.setValueAtTime(note.freq * 3, ctx.currentTime);
-  gain3.gain.setValueAtTime(0.06, ctx.currentTime);
-
-  // Attack envelope
-  gain.gain.setValueAtTime(0, ctx.currentTime);
-  gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.01);
-  gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.1);
-
-  masterGain.gain.setValueAtTime(0.6, ctx.currentTime);
-
-  osc.connect(gain);
-  osc2.connect(gain2);
-  osc3.connect(gain3);
-  gain.connect(masterGain);
-  gain2.connect(masterGain);
-  gain3.connect(masterGain);
-  masterGain.connect(ctx.destination);
-
-  osc.start();
-  osc2.start();
-  osc3.start();
-
-  activeOscillators[note.name] = { oscs: [osc, osc2, osc3], gain: masterGain, ctx };
+// ── Start / Stop note ──
+function startNote(note) {
+  if (activeNotes[note.name]) return;
+  if (currentMode === 'piano') {
+    startPianoNote(note);
+  } else {
+    startOrganNote(note);
+  }
 }
 
 function stopNote(note) {
-  const data = activeOscillators[note.name];
+  const data = activeNotes[note.name];
   if (!data) return;
-  const { oscs, gain, ctx } = data;
-
-  // Release envelope
-  gain.gain.cancelScheduledValues(ctx.currentTime);
-  gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-
-  setTimeout(() => {
-    oscs.forEach(o => { try { o.stop(); } catch(e) {} });
-  }, 350);
-
-  delete activeOscillators[note.name];
+  if (data.mode === 'piano') {
+    stopPianoNote(note, data);
+  } else {
+    stopOrganNote(note, data);
+  }
 }
 
-// Build piano UI
-const piano = document.getElementById('piano');
-const whiteNotes = notes.filter(n => n.type === 'white');
-const blackNotes = notes.filter(n => n.type === 'black');
+// ── Piano mode: play real samples ──
+function startPianoNote(note) {
+  const ctx = getAudioCtx();
+  const buffer = sampleBuffers[note.name];
 
-// White keys
-whiteNotes.forEach(note => {
+  if (!buffer) {
+    // Fallback: improved synthesis if samples not loaded
+    startOrganNote(note);
+    return;
+  }
+
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(1.0, ctx.currentTime);
+
+  source.connect(gain);
+  gain.connect(ctx.destination);
+  source.start();
+
+  activeNotes[note.name] = { source, gain, ctx, mode: 'piano' };
+}
+
+function stopPianoNote(note, data) {
+  const { source, gain, ctx } = data;
+  gain.gain.cancelScheduledValues(ctx.currentTime);
+  gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+  setTimeout(() => { try { source.stop(); } catch(e) {} }, 600);
+  delete activeNotes[note.name];
+}
+
+// ── Organ mode: warm drawbar organ synthesis ──
+function startOrganNote(note) {
+  const ctx = getAudioCtx();
+
+  // Drawbar organ harmonics (8', 4', 2-2/3', 2', 1-3/5')
+  const harmonics = [
+    { ratio: 1,     gain: 0.40, type: 'sine' },   // fundamental (8')
+    { ratio: 2,     gain: 0.25, type: 'sine' },   // octave (4')
+    { ratio: 3,     gain: 0.10, type: 'sine' },   // 12th (2-2/3')
+    { ratio: 4,     gain: 0.12, type: 'sine' },   // 15th (2')
+    { ratio: 5,     gain: 0.05, type: 'sine' },   // 17th (1-3/5')
+    { ratio: 0.5,   gain: 0.15, type: 'sine' },   // sub-octave (16')
+  ];
+
+  const masterGain = ctx.createGain();
+  masterGain.gain.setValueAtTime(0, ctx.currentTime);
+  masterGain.gain.linearRampToValueAtTime(0.45, ctx.currentTime + 0.04);
+
+  // Gentle vibrato LFO
+  const lfo = ctx.createOscillator();
+  const lfoGain = ctx.createGain();
+  lfo.type = 'sine';
+  lfo.frequency.setValueAtTime(5.5, ctx.currentTime);
+  lfoGain.gain.setValueAtTime(1.5, ctx.currentTime); // subtle pitch vibrato
+  lfo.connect(lfoGain);
+  lfo.start();
+
+  const oscillators = harmonics.map(h => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = h.type;
+    osc.frequency.setValueAtTime(note.freq * h.ratio, ctx.currentTime);
+    gain.gain.setValueAtTime(h.gain, ctx.currentTime);
+
+    // Connect LFO to frequency for vibrato
+    lfoGain.connect(osc.frequency);
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start();
+    return osc;
+  });
+
+  masterGain.connect(ctx.destination);
+
+  activeNotes[note.name] = {
+    oscs: oscillators,
+    lfo,
+    gain: masterGain,
+    ctx,
+    mode: 'organ'
+  };
+}
+
+function stopOrganNote(note, data) {
+  const { oscs, lfo, gain, ctx } = data;
+  gain.gain.cancelScheduledValues(ctx.currentTime);
+  gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+  setTimeout(() => {
+    oscs.forEach(o => { try { o.stop(); } catch(e) {} });
+    try { lfo.stop(); } catch(e) {}
+  }, 200);
+  delete activeNotes[note.name];
+}
+
+// ── Build piano UI ──
+const piano = document.getElementById('piano');
+
+notes.filter(n => n.type === 'white').forEach(note => {
   const key = document.createElement('div');
   key.className = 'white-key';
   key.dataset.note = note.name;
@@ -188,16 +343,15 @@ whiteNotes.forEach(note => {
   piano.appendChild(key);
 });
 
-// Black keys - position them between white keys
 const blackKeyPositions = [
-  { note: 'C#', afterWhite: 0 },  // between C and D
-  { note: 'D#', afterWhite: 1 },  // between D and E
-  { note: 'F#', afterWhite: 3 },  // between F and G
-  { note: 'G#', afterWhite: 4 },  // between G and A
-  { note: 'A#', afterWhite: 5 },  // between A and B
+  { note: 'C#', afterWhite: 0 },
+  { note: 'D#', afterWhite: 1 },
+  { note: 'F#', afterWhite: 3 },
+  { note: 'G#', afterWhite: 4 },
+  { note: 'A#', afterWhite: 5 },
 ];
 
-const whiteKeyWidth = 100 / 8; // percentage width of each white key
+const whiteKeyWidth = 100 / 8;
 
 blackKeyPositions.forEach(pos => {
   const note = notes.find(n => n.name === pos.note);
@@ -205,19 +359,12 @@ blackKeyPositions.forEach(pos => {
   key.className = 'black-key';
   key.dataset.note = note.name;
   key.textContent = note.name;
-  // Position: center between the two white keys
   const leftPercent = (pos.afterWhite + 1) * whiteKeyWidth - (whiteKeyWidth * 0.3);
   key.style.left = leftPercent + '%';
   piano.appendChild(key);
 });
 
-// Event handlers
-function getNoteFromElement(el) {
-  const keyEl = el.closest('.white-key, .black-key');
-  if (!keyEl) return null;
-  return notes.find(n => n.name === keyEl.dataset.note);
-}
-
+// ── Event handlers ──
 function handleStart(el) {
   const keyEl = el.closest('.white-key, .black-key');
   if (!keyEl) return;
@@ -242,13 +389,10 @@ function handleEnd(el) {
 piano.addEventListener('mousedown', e => {
   handleStart(e.target);
   const onMove = ev => {
-    // Handle dragging across keys
     const el = document.elementFromPoint(ev.clientX, ev.clientY);
     if (el) {
       document.querySelectorAll('.active').forEach(k => {
-        if (k !== el.closest('.white-key, .black-key')) {
-          handleEnd(k);
-        }
+        if (k !== el.closest('.white-key, .black-key')) handleEnd(k);
       });
       handleStart(el);
     }
@@ -287,12 +431,10 @@ piano.addEventListener('touchmove', e => {
       const keyEl = el.closest('.white-key, .black-key');
       const prevNote = activeTouches[touch.identifier];
       if (keyEl && keyEl.dataset.note !== prevNote) {
-        // Stop previous note
         if (prevNote) {
           const prevKey = document.querySelector(`[data-note="${prevNote}"]`);
           if (prevKey) handleEnd(prevKey);
         }
-        // Start new note
         activeTouches[touch.identifier] = keyEl.dataset.note;
         handleStart(el);
       }
@@ -354,6 +496,14 @@ document.addEventListener('keyup', e => {
     }
   }
 });
+
+// Auto-load piano samples on first interaction
+document.addEventListener('click', () => {
+  if (!samplesLoaded) loadPianoSamples();
+}, { once: true });
+document.addEventListener('touchstart', () => {
+  if (!samplesLoaded) loadPianoSamples();
+}, { once: true });
 </script>
 </body>
 </html>
