@@ -22,48 +22,84 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-/* ── Tuner ── */
-#tuner {
+/* ── Wrapper for rotation ── */
+#wrapper {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#wrapper.rotated {
+  width: 100vh;
+  height: 100vw;
+  transform-origin: top left;
+  transform: rotate(90deg) translate(0, -100%);
+}
+
+/* ── Top bar (tuner + buttons) ── */
+#top-bar {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 160px;
+  height: 130px;
   background: linear-gradient(135deg, #0f0f23, #1a1a3e);
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   z-index: 10;
   border-bottom: 2px solid #333;
+  padding: 0 50px;
+}
+
+.rotated #top-bar {
+  height: 90px;
+  padding: 0 46px;
+}
+
+/* Tuner display */
+#tuner-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
 }
 
 #tuner-note {
-  font-size: 52px;
+  font-size: 48px;
   font-weight: 900;
   color: #fff;
   line-height: 1;
-  min-width: 80px;
-  text-align: center;
+}
+
+.rotated #tuner-note {
+  font-size: 34px;
 }
 
 #tuner-freq {
-  font-size: 13px;
+  font-size: 12px;
   color: #888;
   margin-top: 2px;
 }
 
 #tuner-meter {
-  width: 80%;
-  max-width: 350px;
-  height: 28px;
-  margin-top: 8px;
+  width: 70%;
+  max-width: 300px;
+  height: 24px;
+  margin-top: 6px;
   position: relative;
   display: flex;
   align-items: center;
 }
 
+.rotated #tuner-meter {
+  margin-top: 3px;
+  height: 18px;
+}
+
 #meter-bar {
   width: 100%;
-  height: 6px;
+  height: 5px;
   background: #333;
   border-radius: 3px;
   position: relative;
@@ -73,9 +109,9 @@ html, body {
   content: '';
   position: absolute;
   left: 50%;
-  top: -8px;
+  top: -7px;
   width: 2px;
-  height: 22px;
+  height: 19px;
   background: #555;
   transform: translateX(-50%);
 }
@@ -84,8 +120,8 @@ html, body {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   background: #f44;
   border-radius: 50%;
   transform: translate(-50%, -50%);
@@ -104,21 +140,22 @@ html, body {
   width: 100%;
   position: absolute;
   bottom: -2px;
-  font-size: 10px;
-  color: #666;
+  font-size: 9px;
+  color: #555;
 }
 
-#mic-btn {
+/* Buttons */
+.top-btn {
   position: absolute;
-  top: 10px;
-  right: 12px;
-  width: 36px;
-  height: 36px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   border: 2px solid #555;
   background: #222;
   color: #888;
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -126,11 +163,26 @@ html, body {
   z-index: 11;
 }
 
+.rotated .top-btn {
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+}
+
+#mic-btn { right: 8px; }
+#rotate-btn { left: 8px; }
+
 #mic-btn.on {
   border-color: #f44;
   background: #411;
   color: #f66;
   animation: pulse 1.5s infinite;
+}
+
+#rotate-btn.on {
+  border-color: #4a90d9;
+  background: #1a2a44;
+  color: #6ab0ff;
 }
 
 @keyframes pulse {
@@ -141,11 +193,13 @@ html, body {
 /* ── Piano ── */
 #piano {
   position: absolute;
-  top: 160px;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 130px;
+  left: 0; right: 0; bottom: 0;
   display: flex;
+}
+
+.rotated #piano {
+  top: 90px;
 }
 
 .white-key {
@@ -156,36 +210,36 @@ html, body {
   border-top: none;
   border-radius: 0 0 10px 10px;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  padding-bottom: clamp(12px, 3vh, 30px);
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: clamp(10px, 3vh, 30px);
   cursor: pointer;
   position: relative;
   z-index: 1;
-  transition: background 0.05s;
+  transition: background 0.06s;
 }
 
 .white-key .note-label {
-  font-size: clamp(14px, 3.5vw, 24px);
+  font-size: clamp(13px, 3vw, 22px);
   font-weight: 800;
   color: #999;
   pointer-events: none;
 }
 
+.rotated .white-key .note-label {
+  font-size: clamp(13px, 3vh, 22px);
+}
+
 .white-key.active {
   background: linear-gradient(180deg, #dde8ff 0%, #c8d8f0 60%, #b0c4e8 100%);
 }
-
-.white-key.active .note-label {
-  color: #4a70c0;
-}
+.white-key.active .note-label { color: #4a70c0; }
 
 .black-key {
   position: absolute;
-  top: 160px;
-  width: calc(100% / 8 * 0.65);
-  height: calc((100% - 160px) * 0.58);
+  top: 130px;
+  width: calc(100% / 8 * 0.62);
+  height: calc((100% - 130px) * 0.57);
   background: linear-gradient(180deg, #444 0%, #222 40%, #111 100%);
   border-radius: 0 0 8px 8px;
   z-index: 2;
@@ -193,29 +247,34 @@ html, body {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: clamp(8px, 2vh, 18px);
+  padding-bottom: clamp(6px, 2vh, 16px);
   box-shadow: 0 4px 8px rgba(0,0,0,0.5), inset 0 -2px 4px rgba(255,255,255,0.05);
-  transition: background 0.05s;
+  transition: background 0.06s;
+}
+
+.rotated .black-key {
+  top: 90px;
+  height: calc((100% - 90px) * 0.57);
 }
 
 .black-key .note-label {
-  font-size: clamp(9px, 2vw, 15px);
+  font-size: clamp(9px, 1.8vw, 14px);
   font-weight: 700;
   color: #777;
   pointer-events: none;
 }
 
+.rotated .black-key .note-label {
+  font-size: clamp(9px, 1.8vh, 14px);
+}
+
 .black-key.active {
   background: linear-gradient(180deg, #556 0%, #334 40%, #223 100%);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 -1px 2px rgba(255,255,255,0.05);
-  padding-top: 2px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
+.black-key.active .note-label { color: #aac; }
 
-.black-key.active .note-label {
-  color: #aac;
-}
-
-/* Highlighted key when tuner detects note */
+/* Tuner detected highlight */
 .white-key.detected {
   background: linear-gradient(180deg, #e8ffe8 0%, #c0f0c0 60%, #a0e0a0 100%);
 }
@@ -228,18 +287,22 @@ html, body {
 </head>
 <body>
 
-<div id="tuner">
-  <div id="tuner-note">--</div>
-  <div id="tuner-freq">마이크를 켜서 음을 감지하세요</div>
-  <div id="tuner-meter">
-    <div id="meter-bar"></div>
-    <div id="meter-needle" style="left:50%"></div>
-    <div id="meter-labels"><span>-50</span><span>0</span><span>+50</span></div>
+<div id="wrapper">
+  <div id="top-bar">
+    <button class="top-btn" id="rotate-btn" onclick="toggleRotate()">&#x21BB;</button>
+    <div id="tuner-info">
+      <div id="tuner-note">--</div>
+      <div id="tuner-freq">마이크를 켜서 음을 감지하세요</div>
+      <div id="tuner-meter">
+        <div id="meter-bar"></div>
+        <div id="meter-needle" style="left:50%"></div>
+        <div id="meter-labels"><span>-50</span><span>0</span><span>+50</span></div>
+      </div>
+    </div>
+    <button class="top-btn" id="mic-btn" onclick="toggleMic()">&#x1f3a4;</button>
   </div>
-  <button id="mic-btn" onclick="toggleMic()">&#x1f3a4;</button>
+  <div id="piano"></div>
 </div>
-
-<div id="piano"></div>
 
 <script>
 // ── Notes ──
@@ -261,7 +324,7 @@ const notes = [
   { name: 'C2', freq: 523.25, type: 'white', sample: 'C5'  },
 ];
 
-// ── Audio context & piano samples ──
+// ── Audio ──
 let audioCtx = null;
 const activeNotes = {};
 const sampleBuffers = {};
@@ -291,7 +354,6 @@ function startNote(note) {
   if (activeNotes[note.name]) return;
   const ctx = getAudioCtx();
   const buffer = sampleBuffers[note.name];
-
   if (buffer) {
     const source = ctx.createBufferSource();
     source.buffer = buffer;
@@ -302,7 +364,6 @@ function startNote(note) {
     source.start();
     activeNotes[note.name] = { source, gain, ctx };
   } else {
-    // Synthesis fallback
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = 'sine';
@@ -312,7 +373,7 @@ function startNote(note) {
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start();
-    activeNotes[note.name] = { source: osc, gain, ctx, synth: true };
+    activeNotes[note.name] = { source: osc, gain, ctx };
   }
 }
 
@@ -327,10 +388,18 @@ function stopNote(note) {
   delete activeNotes[note.name];
 }
 
-// ── Tuner (pitch detection) ──
+// ── Rotation toggle ──
+let isRotated = false;
+
+function toggleRotate() {
+  isRotated = !isRotated;
+  document.getElementById('wrapper').classList.toggle('rotated', isRotated);
+  document.getElementById('rotate-btn').classList.toggle('on', isRotated);
+}
+
+// ── Tuner ──
 let micStream = null;
 let micAnalyser = null;
-let micSource = null;
 let tunerRunning = false;
 let tunerRAF = null;
 let lastDetectedNote = null;
@@ -344,7 +413,7 @@ async function startTuner() {
   try {
     const ctx = getAudioCtx();
     micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    micSource = ctx.createMediaStreamSource(micStream);
+    const micSource = ctx.createMediaStreamSource(micStream);
     micAnalyser = ctx.createAnalyser();
     micAnalyser.fftSize = 4096;
     micSource.connect(micAnalyser);
@@ -373,76 +442,50 @@ function detectPitch() {
   if (!tunerRunning) return;
   const buf = new Float32Array(micAnalyser.fftSize);
   micAnalyser.getFloatTimeDomainData(buf);
-
   const freq = autoCorrelate(buf, audioCtx.sampleRate);
-
   if (freq > 0) {
     const { note, cents, octave } = freqToNote(freq);
-    const displayName = note + octave;
-
-    document.getElementById('tuner-note').textContent = displayName;
+    document.getElementById('tuner-note').textContent = note + octave;
     document.getElementById('tuner-freq').textContent = freq.toFixed(1) + ' Hz';
-
-    // Meter: cents range -50 to +50 mapped to 0% - 100%
     const pct = Math.max(0, Math.min(100, 50 + cents));
     const needle = document.getElementById('meter-needle');
     needle.style.left = pct + '%';
     needle.classList.toggle('in-tune', Math.abs(cents) < 5);
-
     highlightDetected(note);
   }
-
   tunerRAF = requestAnimationFrame(detectPitch);
 }
 
-// Autocorrelation pitch detection
 function autoCorrelate(buf, sampleRate) {
-  // Check if there's enough signal
   let rms = 0;
   for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
   rms = Math.sqrt(rms / buf.length);
-  if (rms < 0.01) return -1; // too quiet
+  if (rms < 0.01) return -1;
 
-  // Trim silence from edges
   let start = 0, end = buf.length - 1;
   const threshold = 0.2;
   while (start < buf.length / 2 && Math.abs(buf[start]) < threshold) start++;
   while (end > buf.length / 2 && Math.abs(buf[end]) < threshold) end--;
   const trimmed = buf.slice(start, end + 1);
-
-  // Autocorrelation
   const len = trimmed.length;
   const corr = new Float32Array(len);
   for (let lag = 0; lag < len; lag++) {
     let sum = 0;
-    for (let i = 0; i < len - lag; i++) {
-      sum += trimmed[i] * trimmed[i + lag];
-    }
+    for (let i = 0; i < len - lag; i++) sum += trimmed[i] * trimmed[i + lag];
     corr[lag] = sum;
   }
-
-  // Find first dip then first peak
   let d = 0;
   while (d < len && corr[d] > corr[d + 1]) d++;
-
   let maxVal = -1, maxPos = -1;
   for (let i = d; i < len; i++) {
-    if (corr[i] > maxVal) {
-      maxVal = corr[i];
-      maxPos = i;
-    }
+    if (corr[i] > maxVal) { maxVal = corr[i]; maxPos = i; }
   }
-
   if (maxPos <= 0) return -1;
-
-  // Parabolic interpolation for sub-sample accuracy
   const y1 = corr[maxPos - 1] || 0;
   const y2 = corr[maxPos];
   const y3 = corr[maxPos + 1] || 0;
   const shift = (y3 - y1) / (2 * (2 * y2 - y1 - y3));
-  const refinedPos = maxPos + (isFinite(shift) ? shift : 0);
-
-  return sampleRate / refinedPos;
+  return sampleRate / (maxPos + (isFinite(shift) ? shift : 0));
 }
 
 function freqToNote(freq) {
@@ -450,8 +493,8 @@ function freqToNote(freq) {
   const rounded = Math.round(semitones);
   const cents = (semitones - rounded) * 100;
   const noteIndex = ((rounded % 12) + 12) % 12;
-  const note = NOTE_NAMES[(noteIndex + 9) % 12]; // A=0 -> remap
-  const octave = Math.floor((rounded + 9) / 12) + 4; // A4 = 440
+  const note = NOTE_NAMES[(noteIndex + 9) % 12];
+  const octave = Math.floor((rounded + 9) / 12) + 4;
   return { note, cents, octave };
 }
 
@@ -459,7 +502,6 @@ function highlightDetected(noteName) {
   if (lastDetectedNote === noteName) return;
   clearDetectedHighlight();
   lastDetectedNote = noteName;
-  // Highlight matching piano keys
   document.querySelectorAll(`[data-note="${noteName}"], [data-note="${noteName}2"]`).forEach(el => {
     el.classList.add('detected');
   });
@@ -470,7 +512,7 @@ function clearDetectedHighlight() {
   lastDetectedNote = null;
 }
 
-// ── Build piano UI ──
+// ── Build piano ──
 const piano = document.getElementById('piano');
 
 notes.filter(n => n.type === 'white').forEach(note => {
@@ -502,11 +544,11 @@ blackKeyPositions.forEach(pos => {
   label.className = 'note-label';
   label.textContent = note.name;
   key.appendChild(label);
-  key.style.left = ((pos.afterWhite + 1) * whiteKeyWidth - whiteKeyWidth * 0.325) + '%';
+  key.style.left = ((pos.afterWhite + 1) * whiteKeyWidth - whiteKeyWidth * 0.31) + '%';
   piano.appendChild(key);
 });
 
-// ── Event handlers ──
+// ── Events ──
 function handleStart(el) {
   const keyEl = el.closest('.white-key, .black-key');
   if (!keyEl) return;
@@ -602,7 +644,6 @@ document.addEventListener('keyup', e => {
   if (n) { const note = notes.find(x => x.name === n); const k = document.querySelector(`[data-note="${n}"]`); if (note && k) { k.classList.remove('active'); stopNote(note); } }
 });
 
-// Load samples on first interaction
 function initSamples() { if (!samplesLoaded) loadPianoSamples(); }
 document.addEventListener('click', initSamples, { once: true });
 document.addEventListener('touchstart', initSamples, { once: true });
