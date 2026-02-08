@@ -341,34 +341,40 @@ let audioCtx = null;
 let masterGain = null;
 let compressor = null;
 let boostOn = false;
+let audioReady = false;
 const activeNotes = {};
 const sampleBuffers = {};
 let samplesLoaded = false;
+let samplesLoading = false;
 
-function getAudioCtx() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    // Master gain → Compressor → Destination
-    compressor = audioCtx.createDynamicsCompressor();
-    compressor.threshold.setValueAtTime(-24, audioCtx.currentTime);
-    compressor.knee.setValueAtTime(12, audioCtx.currentTime);
-    compressor.ratio.setValueAtTime(4, audioCtx.currentTime);
-    compressor.attack.setValueAtTime(0.003, audioCtx.currentTime);
-    compressor.release.setValueAtTime(0.1, audioCtx.currentTime);
-    masterGain = audioCtx.createGain();
-    masterGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
-    masterGain.connect(compressor);
-    compressor.connect(audioCtx.destination);
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  compressor = audioCtx.createDynamicsCompressor();
+  compressor.threshold.value = -24;
+  compressor.knee.value = 12;
+  compressor.ratio.value = 4;
+  compressor.attack.value = 0.003;
+  compressor.release.value = 0.1;
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = boostOn ? 2.5 : 1.0;
+  masterGain.connect(compressor);
+  compressor.connect(audioCtx.destination);
+}
+
+function ensureAudioReady() {
+  initAudio();
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().then(() => { audioReady = true; });
+  } else {
+    audioReady = true;
   }
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  return audioCtx;
+  if (!samplesLoaded && !samplesLoading) loadPianoSamples();
 }
 
 function toggleBoost() {
   boostOn = !boostOn;
-  const ctx = getAudioCtx();
-  // x1 = normal, x2 = boosted
-  masterGain.gain.setValueAtTime(boostOn ? 2.5 : 1.0, ctx.currentTime);
+  if (masterGain) masterGain.gain.value = boostOn ? 2.5 : 1.0;
   document.getElementById('vol-btn').textContent = boostOn ? 'x2' : 'x1';
   document.getElementById('vol-btn').classList.toggle('on', boostOn);
 }
@@ -376,52 +382,53 @@ function toggleBoost() {
 const SAMPLE_BASE = 'https://gleitz.github.io/midi-js-soundfonts/MusyngKite/acoustic_grand_piano-mp3/';
 
 async function loadPianoSamples() {
-  const ctx = getAudioCtx();
+  if (samplesLoading) return;
+  samplesLoading = true;
+  initAudio();
   await Promise.all(notes.map(async note => {
     try {
       const resp = await fetch(SAMPLE_BASE + note.sample + '.mp3');
       const buf = await resp.arrayBuffer();
-      sampleBuffers[note.name] = await ctx.decodeAudioData(buf);
+      sampleBuffers[note.name] = await audioCtx.decodeAudioData(buf);
     } catch(e) { console.warn('Sample load failed:', note.sample); }
   }));
   samplesLoaded = true;
 }
 
 function startNote(note) {
-  if (activeNotes[note.name]) return;
-  const ctx = getAudioCtx();
+  if (activeNotes[note.name] || !audioCtx) return;
   const buffer = sampleBuffers[note.name];
   if (buffer) {
-    const source = ctx.createBufferSource();
+    const source = audioCtx.createBufferSource();
     source.buffer = buffer;
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(1.0, ctx.currentTime);
+    const gain = audioCtx.createGain();
+    gain.gain.value = 1.0;
     source.connect(gain);
     gain.connect(masterGain);
-    source.start();
-    activeNotes[note.name] = { source, gain, ctx };
+    source.start(0);
+    activeNotes[note.name] = { source, gain };
   } else {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+    // Instant fallback - no attack ramp
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(note.freq, ctx.currentTime);
-    gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.02);
+    osc.frequency.value = note.freq;
+    gain.gain.value = 0.4;
     osc.connect(gain);
     gain.connect(masterGain);
-    osc.start();
-    activeNotes[note.name] = { source: osc, gain, ctx };
+    osc.start(0);
+    activeNotes[note.name] = { source: osc, gain };
   }
 }
 
 function stopNote(note) {
   const data = activeNotes[note.name];
   if (!data) return;
-  const { source, gain, ctx } = data;
-  gain.gain.cancelScheduledValues(ctx.currentTime);
-  gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-  setTimeout(() => { try { source.stop(); } catch(e) {} }, 500);
+  const { source, gain } = data;
+  const t = audioCtx.currentTime;
+  gain.gain.setValueAtTime(gain.gain.value, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+  setTimeout(() => { try { source.stop(); } catch(e) {} }, 350);
   delete activeNotes[note.name];
 }
 
@@ -448,10 +455,10 @@ function toggleMic() {
 
 async function startTuner() {
   try {
-    const ctx = getAudioCtx();
+    ensureAudioReady();
     micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const micSource = ctx.createMediaStreamSource(micStream);
-    micAnalyser = ctx.createAnalyser();
+    const micSource = audioCtx.createMediaStreamSource(micStream);
+    micAnalyser = audioCtx.createAnalyser();
     micAnalyser.fftSize = 4096;
     micSource.connect(micAnalyser);
     tunerRunning = true;
@@ -591,6 +598,7 @@ blackKeyPositions.forEach(pos => {
 function handleStart(el) {
   const keyEl = el.closest('.white-key, .black-key');
   if (!keyEl) return;
+  if (!audioReady) ensureAudioReady();
   const note = notes.find(n => n.name === keyEl.dataset.note);
   if (note) { keyEl.classList.add('active'); startNote(note); }
 }
@@ -684,9 +692,16 @@ document.addEventListener('keyup', e => {
   if (n) { const note = notes.find(x => x.name === n); const k = document.querySelector(`[data-note="${n}"]`); if (note && k) { k.classList.remove('active'); stopNote(note); } }
 });
 
-function initSamples() { if (!samplesLoaded) loadPianoSamples(); }
-document.addEventListener('click', initSamples, { once: true });
-document.addEventListener('touchstart', initSamples, { once: true });
+// Init audio + load samples on first user gesture
+function firstTouch() {
+  ensureAudioReady();
+  document.removeEventListener('click', firstTouch);
+  document.removeEventListener('touchstart', firstTouch);
+  document.removeEventListener('keydown', firstTouch);
+}
+document.addEventListener('click', firstTouch, { passive: true });
+document.addEventListener('touchstart', firstTouch, { passive: true });
+document.addEventListener('keydown', firstTouch, { passive: true });
 </script>
 </body>
 </html>
