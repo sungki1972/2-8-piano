@@ -245,7 +245,7 @@ html, body {
 .black-key {
   position: absolute;
   top: 130px;
-  width: calc(100% / 8 * 0.62);
+  width: calc(100% / 10 * 0.62);
   height: calc((100% - 130px) * 0.57);
   background: linear-gradient(180deg, #444 0%, #222 40%, #111 100%);
   border-radius: 0 0 8px 8px;
@@ -317,19 +317,23 @@ html, body {
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 
 const notes = [
-  { name: 'C',  freq: 261.63, type: 'white', sample: 'C4'  },
-  { name: 'C#', freq: 277.18, type: 'black', sample: 'Db4' },
-  { name: 'D',  freq: 293.66, type: 'white', sample: 'D4'  },
-  { name: 'D#', freq: 311.13, type: 'black', sample: 'Eb4' },
-  { name: 'E',  freq: 329.63, type: 'white', sample: 'E4'  },
-  { name: 'F',  freq: 349.23, type: 'white', sample: 'F4'  },
-  { name: 'F#', freq: 369.99, type: 'black', sample: 'Gb4' },
-  { name: 'G',  freq: 392.00, type: 'white', sample: 'G4'  },
-  { name: 'G#', freq: 415.30, type: 'black', sample: 'Ab4' },
-  { name: 'A',  freq: 440.00, type: 'white', sample: 'A4'  },
-  { name: 'A#', freq: 466.16, type: 'black', sample: 'Bb4' },
-  { name: 'B',  freq: 493.88, type: 'white', sample: 'B4'  },
-  { name: 'C2', freq: 523.25, type: 'white', sample: 'C5'  },
+  { name: 'C',   freq: 261.63, type: 'white', sample: 'C4'  },
+  { name: 'C#',  freq: 277.18, type: 'black', sample: 'Db4' },
+  { name: 'D',   freq: 293.66, type: 'white', sample: 'D4'  },
+  { name: 'D#',  freq: 311.13, type: 'black', sample: 'Eb4' },
+  { name: 'E',   freq: 329.63, type: 'white', sample: 'E4'  },
+  { name: 'F',   freq: 349.23, type: 'white', sample: 'F4'  },
+  { name: 'F#',  freq: 369.99, type: 'black', sample: 'Gb4' },
+  { name: 'G',   freq: 392.00, type: 'white', sample: 'G4'  },
+  { name: 'G#',  freq: 415.30, type: 'black', sample: 'Ab4' },
+  { name: 'A',   freq: 440.00, type: 'white', sample: 'A4'  },
+  { name: 'A#',  freq: 466.16, type: 'black', sample: 'Bb4' },
+  { name: 'B',   freq: 493.88, type: 'white', sample: 'B4'  },
+  { name: 'C2',  freq: 523.25, type: 'white', sample: 'C5'  },
+  { name: 'C#2', freq: 554.37, type: 'black', sample: 'Db5' },
+  { name: 'D2',  freq: 587.33, type: 'white', sample: 'D5'  },
+  { name: 'D#2', freq: 622.25, type: 'black', sample: 'Eb5' },
+  { name: 'E2',  freq: 659.26, type: 'white', sample: 'E5'  },
 ];
 
 // ── Audio ──
@@ -535,8 +539,8 @@ function highlightDetected(noteName) {
   if (lastDetectedNote === noteName) return;
   clearDetectedHighlight();
   lastDetectedNote = noteName;
-  document.querySelectorAll(`[data-note="${noteName}"], [data-note="${noteName}2"]`).forEach(el => {
-    el.classList.add('detected');
+  document.querySelectorAll('.white-key, .black-key').forEach(el => {
+    if (el.dataset.note.replace(/2$/, '') === noteName) el.classList.add('detected');
   });
 }
 
@@ -554,19 +558,21 @@ notes.filter(n => n.type === 'white').forEach(note => {
   key.dataset.note = note.name;
   const label = document.createElement('span');
   label.className = 'note-label';
-  label.textContent = note.name.replace('2', '');
+  label.textContent = note.name.replace(/2$/, '');
   key.appendChild(label);
   piano.appendChild(key);
 });
 
 const blackKeyPositions = [
-  { note: 'C#', afterWhite: 0 },
-  { note: 'D#', afterWhite: 1 },
-  { note: 'F#', afterWhite: 3 },
-  { note: 'G#', afterWhite: 4 },
-  { note: 'A#', afterWhite: 5 },
+  { note: 'C#',  afterWhite: 0 },
+  { note: 'D#',  afterWhite: 1 },
+  { note: 'F#',  afterWhite: 3 },
+  { note: 'G#',  afterWhite: 4 },
+  { note: 'A#',  afterWhite: 5 },
+  { note: 'C#2', afterWhite: 7 },
+  { note: 'D#2', afterWhite: 8 },
 ];
-const whiteKeyWidth = 100 / 8;
+const whiteKeyWidth = 100 / 10;
 
 blackKeyPositions.forEach(pos => {
   const note = notes.find(n => n.name === pos.note);
@@ -663,7 +669,8 @@ piano.addEventListener('touchcancel', e => {
 const keyMap = {
   'a':'C','w':'C#','s':'D','e':'D#','d':'E',
   'f':'F','t':'F#','g':'G','y':'G#','h':'A',
-  'u':'A#','j':'B','k':'C2'
+  'u':'A#','j':'B','k':'C2','o':'C#2','l':'D2',
+  'p':'D#2',';':'E2'
 };
 
 document.addEventListener('keydown', e => {
