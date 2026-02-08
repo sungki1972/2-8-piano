@@ -171,6 +171,13 @@ html, body {
 
 #mic-btn { right: 8px; }
 #rotate-btn { left: 8px; }
+#vol-btn { right: 52px; font-size: 13px; font-weight: 900; }
+
+#vol-btn.on {
+  border-color: #f90;
+  background: #432;
+  color: #fb0;
+}
 
 #mic-btn.on {
   border-color: #f44;
@@ -299,6 +306,7 @@ html, body {
         <div id="meter-labels"><span>-50</span><span>0</span><span>+50</span></div>
       </div>
     </div>
+    <button class="top-btn" id="vol-btn" onclick="toggleBoost()">x1</button>
     <button class="top-btn" id="mic-btn" onclick="toggleMic()">&#x1f3a4;</button>
   </div>
   <div id="piano"></div>
@@ -326,14 +334,39 @@ const notes = [
 
 // ── Audio ──
 let audioCtx = null;
+let masterGain = null;
+let compressor = null;
+let boostOn = false;
 const activeNotes = {};
 const sampleBuffers = {};
 let samplesLoaded = false;
 
 function getAudioCtx() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Master gain → Compressor → Destination
+    compressor = audioCtx.createDynamicsCompressor();
+    compressor.threshold.setValueAtTime(-24, audioCtx.currentTime);
+    compressor.knee.setValueAtTime(12, audioCtx.currentTime);
+    compressor.ratio.setValueAtTime(4, audioCtx.currentTime);
+    compressor.attack.setValueAtTime(0.003, audioCtx.currentTime);
+    compressor.release.setValueAtTime(0.1, audioCtx.currentTime);
+    masterGain = audioCtx.createGain();
+    masterGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+    masterGain.connect(compressor);
+    compressor.connect(audioCtx.destination);
+  }
   if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
+}
+
+function toggleBoost() {
+  boostOn = !boostOn;
+  const ctx = getAudioCtx();
+  // x1 = normal, x2 = boosted
+  masterGain.gain.setValueAtTime(boostOn ? 2.5 : 1.0, ctx.currentTime);
+  document.getElementById('vol-btn').textContent = boostOn ? 'x2' : 'x1';
+  document.getElementById('vol-btn').classList.toggle('on', boostOn);
 }
 
 const SAMPLE_BASE = 'https://gleitz.github.io/midi-js-soundfonts/MusyngKite/acoustic_grand_piano-mp3/';
@@ -360,7 +393,7 @@ function startNote(note) {
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(1.0, ctx.currentTime);
     source.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(masterGain);
     source.start();
     activeNotes[note.name] = { source, gain, ctx };
   } else {
@@ -371,7 +404,7 @@ function startNote(note) {
     gain.gain.setValueAtTime(0, ctx.currentTime);
     gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.02);
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(masterGain);
     osc.start();
     activeNotes[note.name] = { source: osc, gain, ctx };
   }
